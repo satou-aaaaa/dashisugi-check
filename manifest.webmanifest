@@ -1,0 +1,16 @@
+{
+  "name": "出しすぎチェック",
+  "short_name": "出しすぎチェック",
+  "description": "投稿する前にチェック。写真や文から、住所・学校・予定がばれる手がかりを見つける1日5投稿",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4efe6",
+  "theme_color": "#f4efe6",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
