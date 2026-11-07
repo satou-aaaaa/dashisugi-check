@@ -122,6 +122,18 @@ try {
   const p = await newPage();
   check("はじめて開くと遊び方が出る", await p.locator("#howto[open]").count() === 1);
   await p.click("#howto-ok");
+  check("「わかった」を押したその場で遊び方を見た記録が残る", (await mem(p)).tut === true);
+  {
+    // Esc を押した直後に読み直しても出ない（close の知らせは遅れて届くので cancel でも残す。10回）
+    let ok = 0;
+    for (let i = 0; i < 10; i++) {
+      const q = await newPage();
+      await q.keyboard.press("Escape");
+      if ((await mem(q)).tut === true) ok++;
+      await q.context().close();
+    }
+    check("遊び方を Esc で閉じた直後に記録が残る（10回）", ok === 10, ok + "/10");
+  }
   {
     // Esc で閉じても「見た」を覚える（2026-11-07 okane-kihon で見つけた不具合。shared-workflows #186）
     const e = await newPage();
