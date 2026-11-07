@@ -122,6 +122,15 @@ try {
   const p = await newPage();
   check("はじめて開くと遊び方が出る", await p.locator("#howto[open]").count() === 1);
   await p.click("#howto-ok");
+  {
+    // Esc で閉じても「見た」を覚える（2026-11-07 okane-kihon で見つけた不具合。shared-workflows #186）
+    const e = await newPage();
+    await e.keyboard.press("Escape"); await e.waitForTimeout(100);
+    const shut = await e.locator("#howto[open]").count() === 0;
+    await e.reload(); await e.waitForTimeout(200);
+    check("遊び方を Esc で閉じたあと、開き直しても遊び方が出ない", shut && await e.locator("#howto[open]").count() === 0 && (await mem(e)).tut === true);
+    await e.context().close();
+  }
   check("ホームに今日の心がけ・上級・とことん・練習が最初から出る（鍵なし）", (await p.textContent("#tip")).includes("今日の心がけ") && await p.locator("#go-h:not([disabled])").count() === 1 && await p.locator("#go-e").count() === 1 && await p.locator("#go-p").count() === 1);
 
   // 今日の5つ：1つ目は大丈夫な物を押す、2つ目はヒント2回、ほかはそのまま
