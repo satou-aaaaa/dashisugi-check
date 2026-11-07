@@ -437,11 +437,12 @@ function tidy(s) {
   for (const q of BOXES) if (!s[q] || typeof s[q] !== "object" || Array.isArray(s[q])) s[q] = {};
   if (!Array.isArray(s.recent)) s.recent = []; s.recent = s.recent.filter((k) => typeof k === "string" && /^[a-z.]+$/.test(k)).slice(-150);
   for (const k in s.dex) { if (!G.LEAKS[k]) delete s.dex[k]; else s.dex[k] = num(s.dex[k]); }
-  const okRec = (x) => !!x && typeof x === "object" && Array.isArray(x.m) && x.m.every((v) => Number.isInteger(v) && v >= 0);
-  for (const b of [s.days, s.hdays, s.adays]) for (const d in b) if (!okDate(d) || !okRec(b[d])) delete b[d];
+  const okRec = (x, n) => !!x && typeof x === "object" && Array.isArray(x.m) && x.m.length === n && x.m.every((v) => Number.isInteger(v) && v >= 0);
+  for (const [b, n] of [[s.days, 5], [s.hdays, 3], [s.adays, 5]]) for (const d in b) if (!okDate(d) || !okRec(b[d], n)) delete b[d]; // 投稿の数と合わない記録は読まない（今日の5つが始められなくなる）
   for (const m in s.runs) {
     const r = s.runs[m]; if (r === null) continue;
-    if (!r || typeof r !== "object" || !okDate(r.date) || !Array.isArray(r.list) || !r.list.every((t) => typeof t === "string" && G.make(t)) || !Array.isArray(r.res) || !r.res.every((x) => x && typeof x === "object" && Number.isInteger(x.m) && x.m >= 0)) { delete s.runs[m]; continue; }
+    if (!r || typeof r !== "object" || !["d", "h", "a", "p", "e"].includes(r.mode) || (Array.isArray(r.list) && Array.isArray(r.res) && r.res.length > r.list.length)) { delete s.runs[m]; continue; }
+    if ( typeof r !== "object" || !okDate(r.date) || !Array.isArray(r.list) || !r.list.every((t) => typeof t === "string" && G.make(t)) || !Array.isArray(r.res) || !r.res.every((x) => x && typeof x === "object" && Number.isInteger(x.m) && x.m >= 0)) { delete s.runs[m]; continue; }
     if (r.cur != null && (typeof r.cur !== "object" || !Array.isArray(r.cur.found) || !Array.isArray(r.cur.wrong) || !r.cur.found.every(okUid) || !r.cur.wrong.every(okUid))) r.cur = null; else if (r.cur) r.cur.hints = num(r.cur.hints);
     r.clean = num(r.clean); delete r.life; // ライフで遊ぶ量を縛らない（好きなだけ遊べる）。入っていても読まない
   }
@@ -562,7 +563,7 @@ let cur = null;
 const same = (r) => r && cur && r.date === cur.date && r.id === cur.id && r.res.length === cur.i && r.list[cur.i] === cur.tag; // 保存した進み具合が、この画面と同じ投稿か
 const uniq = (a) => [...new Set(a)];
 // 途中の保存：別のタブで見つけた・押した物も、使ったヒントも減らさない
-function keep() { save((s) => { const r = s.runs[MODE]; if (!same(r)) return; const was = r.cur && r.cur.i === cur.i && r.cur.tag === cur.tag ? r.cur : { found: [], wrong: [], hints: 0 }; cur.hints = Math.max(cur.hints, was.hints || 0); cur.found = uniq([...cur.found, ...(was.found || [])]); cur.wrong = uniq([...cur.wrong, ...(was.wrong || [])]); r.cur = { i: cur.i, tag: cur.tag, found: cur.found.slice(), wrong: cur.wrong.slice(), hints: cur.hints }; }); }
+function keep() { save((s) => { const r = s.runs[MODE]; if (!same(r)) return; const was = r.cur && r.cur.i === cur.i && r.cur.tag === cur.tag ? r.cur : { found: [], wrong: [], hints: 0 }; cur.hints = Math.max(cur.hints, was.hints || 0); const mine = (u) => cur.P.parts.some((p) => p.uid === u); cur.found = uniq([...cur.found, ...(was.found || []).filter(mine)]); cur.wrong = uniq([...cur.wrong, ...(was.wrong || []).filter(mine)]); r.cur = { i: cur.i, tag: cur.tag, found: cur.found.slice(), wrong: cur.wrong.slice(), hints: cur.hints }; }); }
 const missOf = () => cur.wrong.length + cur.hints;
 const partOf = (uid) => cur.P.parts.find((p) => p.uid === uid);
 const leftOf = () => cur.P.leaks.filter((u) => !cur.found.includes(u));
@@ -590,10 +591,10 @@ function play() {
     <article class="post" id="post" aria-label="下書きの投稿：${esc(P.sceneName)}">
       <div class="ph"><span class="av" aria-hidden="true">下</span><span class="who">下書き<small>${esc(P.sceneName)}で撮った写真</small></span>${P.parts.filter((p) => p.where === "meta").map(btn).join("")}</div>
       <div class="photo" role="group" aria-label="写真：${esc(P.sceneName)}">${ART.scene(P.scene)}${P.parts.filter((p) => p.where === "photo").map(btn).join("")}</div>
-      <p class="cap" role="group" aria-label="投稿の文">${P.parts.filter((p) => p.where === "text").map(btn).join("")}</p>
+      <p class="cap" role="group" data-a11y-say>${P.parts.filter((p) => p.where === "text").map(btn).join("")}</p>
     </article>
-    <p class="msg" id="msg" role="status" aria-live="polite"></p>
-    <div id="hintbox"></div>
+    <p class="msg" id="msg" role="status" aria-live="polite" data-a11y-say></p>
+    <div id="hintbox" data-a11y-say></div>
     ${hard ? "" : `<button class="sub" id="hint">ヒント</button>`}
     <div class="found" id="found"></div>
     ${run.mode === "e" ? `<button class="sub" id="quit">ここで降りる（${i}投稿で終える）</button>` : ""}
@@ -601,7 +602,7 @@ function play() {
   $("back").onclick = home;
   document.querySelectorAll("[data-u]").forEach((b) => (b.onclick = () => tap(b.dataset.u)));
   if ($("hint")) $("hint").onclick = hint;
-  if ($("quit")) $("quit").onclick = () => { if (cur && cur.done) return; finish(); };
+  if ($("quit")) $("quit").onclick = finish; // 見つけ終えた直後でも降りられる（その投稿は記録ずみ）
   paint();
   if (!leftOf().length) complete(); // 別のタブで見つけ終えていた
   toTop();
@@ -661,6 +662,7 @@ function complete() {
   const g = P.parts.find((p) => p.id === "gps"); if (g) { const b = document.querySelector(`[data-u="${g.uid}"]`); if (b) b.textContent = "📷 写真の位置情報：オフ"; }
   document.querySelectorAll("[data-u]").forEach((b) => (b.disabled = true));
   if ($("hint")) $("hint").disabled = true;
+  if ($("quit") && s.runs[MODE]) $("quit").textContent = `ここで降りる（${s.runs[MODE].res.length}投稿で終える）`;
   $("hintbox").innerHTML = ""; document.querySelectorAll(".hl").forEach((e) => e.classList.remove("hl"));
   $("msg").className = "msg"; $("msg").textContent = "";
   $("after").innerHTML = `<div class="verdict" role="status">
@@ -671,7 +673,7 @@ function complete() {
     ${MODE === "e" ? `<p class="note">まちがいなし ${clean}こ</p>` : ""}
     <button class="main ok" id="next">${fin ? "結果を見る" : "次の投稿へ"}</button></div>`;
   $("next").onclick = play;
-  setTimeout(() => { if ($("next") && cur && cur.done && cur.tag === P.tag) $("next").scrollIntoView({ behavior: "smooth", block: "nearest" }); }, 60);
+  setTimeout(() => { if ($("next") && cur && cur.done && cur.tag === P.tag) $("next").scrollIntoView({ behavior: window.A11y && A11y.on("calm") ? "instant" : "smooth", block: "nearest" }); }, 60);
 }
 
 function finish() {

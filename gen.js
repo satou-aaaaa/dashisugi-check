@@ -130,7 +130,7 @@
   // 1つの投稿を作る。tag は "難しさ:場面|種"（例 "1:room|2026-11-07:d2"）
   function make(tag) {
     const m = /^([0-3]):([a-z]+)\|(.+)$/.exec(String(tag));
-    if (!m || !SCENES[m[2]]) return null;
+    if (!m || !Object.prototype.hasOwnProperty.call(SCENES, m[2])) return null;
     const lv = +m[1], sc = SCENES[m[2]], shp = SHAPE[lv], R = rng(seedOf(tag));
     const town = pick(R, TOWNS), t = { town, sur: pick(R, SURS), given: pick(R, GIVEN), shop: pick(R, SHOPS), g: ri(R, 1, 3), c: ri(R, 1, 4), school: pick(R, TOWNS) + pick(R, SCHOOLS), station: pick(R, TOWNS) + "駅" };
     for (let tries = 0; tries < 400; tries++) {

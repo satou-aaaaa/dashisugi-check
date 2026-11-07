@@ -44,8 +44,8 @@ const G = req(path.join(root, "gen.js")), ART = req(path.join(root, "art.js"));
   check("投稿の組み合わせは難しさごとに300通りより多い（同じ投稿ばかりにならない）", keys.every((k) => k.size > 300), keys.map((k) => k.size).join(","));
   const longs = G.LEAK_IDS.filter((id) => [...G.LEAKS[id].why].length > 40 || [...G.LEAKS[id].fix].length > 30 || !G.SRC[G.LEAKS[id].src]);
   check("手がかりの説明は40字以内・直し方は30字以内・出典がある（やさしい日本語）", longs.length === 0, longs.join(","));
-  check("場面のどの場所にも、手がかりと大丈夫な物の両方を置ける（大丈夫な物の無い場所は手がかりが決まってしまう）", G.SCENE_IDS.every((sc) => G.SCENES[sc].slots.every((s) => s.can.some((id) => G.SAFE[id]) && s.can.some((id) => G.LEAKS[id]) || s.can.every((id) => G.SAFE[id] || G.LEAKS[id]) && s.can.some((id) => G.SAFE[id]))));
-  check("作り話の名前だけを使う（電話番号は 0000 の並び）", /090-0000-0000/.test(readFileSync(path.join(root, "gen.js"), "utf8")) && !/\d{3}-\d{4}-(?!0000)\d{4}/.test(readFileSync(path.join(root, "gen.js"), "utf8")));
+  check("場面のどの場所にも、手がかりと大丈夫な物の両方を置ける（大丈夫な物の無い場所は手がかりが決まってしまう）", G.SCENE_IDS.every((sc) => G.SCENES[sc].slots.every((s) => s.can.some((id) => G.SAFE[id]) && s.can.some((id) => G.LEAKS[id]))));
+  check("作り話の名前だけを使う（電話番号は 0000 の並び）", (() => { const tels = ["gen.js", "art.js", "index.html"].flatMap((f) => readFileSync(path.join(root, f), "utf8").match(/\d{2,4}-\d{2,4}-\d{3,4}/g) || []); return tels.includes("090-0000-0000") && tels.every((t) => t === "090-0000-0000"); })());
 }
 {
   // 今日の5つ・上級の組み方（3年分）
@@ -65,8 +65,8 @@ const G = req(path.join(root, "gen.js")), ART = req(path.join(root, "art.js"));
 // ---- 2. ファイルの中身 ----
 const html = readFileSync(path.join(root, "index.html"), "utf8"), gen = readFileSync(path.join(root, "gen.js"), "utf8"), art = readFileSync(path.join(root, "art.js"), "utf8");
 const ext = [...html.matchAll(/(?:src|href)="(https?:[^"]+)"/g)].map((m) => m[1]).filter((u) => !/^https:\/\/fonts\.googleapis\.com(\/|$)|^https:\/\/ko-fi\.com\/satouaaaaa$|^https:\/\/(www\.ihaho\.jp|www\.gov-online\.go\.jp)\/$/.test(u));
-check("外から読むのは文字（Google Fonts）だけ。スクリプト・広告・解析を入れない（出典のリンクは押したときに開くだけ）", ext.length === 0 && ![...html.matchAll(/<script[^>]+src="([^"]+)"/g)].some((m) => /^https?:/.test(m[1])), ext.join(","));
-check("CSP で通信先を自分だけにしている", /connect-src 'self'/.test(html) && !/connect-src[^;"]*https/.test(html));
+check("外から読むのは文字（Google Fonts）だけ。スクリプト・広告・解析を入れない（出典のリンクは押したときに開くだけ）", ext.length === 0 && ![...html.matchAll(/<script[^>]+src="([^"]+)"/g)].some((m) => /^(https?:)?\/\//.test(m[1])), ext.join(","));
+check("CSP で通信先を自分だけにしている", (html.match(/connect-src([^;"]*)/) || [])[1]?.trim() === "'self'");
 check("Math.random は練習・とことんの種だけ（今日の5つ・上級は日付の乱数。gen.js・art.js には無い）", (html.match(/Math\.random/g) || []).length === 2 && !/Math\.random/.test(gen + art));
 check("乱数は sort の比較の中で引かない（ブラウザで引く回数が変わる）", !/\.sort\(\s*\([^)]*\)\s*=>[^\n;]*\b(R|rng|rand|Math\.random)\s*\(/.test(html + gen));
 check("一行の式の途中にコメント // を足さない（行の残りが消える。rosen-hitofude 2026-11-04）", !/;\s*\/\/[^\n]*;\s*\w/.test((gen + art).split("\n").filter((l) => !l.trim().startsWith("//")).join("\n")));
@@ -91,7 +91,7 @@ check("README の URL のすぐ後ろに全角の字を続けない（Link check
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".png": "image/png", ".webmanifest": "application/manifest+json" };
 const server = createServer((rq, res) => {
   const p = decodeURIComponent(new URL(rq.url, "http://x").pathname), f = path.join(root, p === "/" ? "index.html" : p);
-  if (!f.startsWith(root) || !existsSync(f)) { res.writeHead(404); return res.end(); }
+  if ((f !== root && !f.startsWith(root + path.sep)) || !existsSync(f)) { res.writeHead(404); return res.end(); }
   res.writeHead(200, { "content-type": TYPES[path.extname(f)] || "application/octet-stream" }); res.end(readFileSync(f));
 }).listen(0);
 const url = `http://127.0.0.1:${server.address().port}/`;
@@ -196,6 +196,16 @@ try {
   check("とことんは開き直すと続きから", (await p.textContent("#go-e")).includes("続きから"));
   await p.click("#go-e"); await p.click("#quit"); await p.waitForTimeout(150);
   check("「ここで降りる」で終わり、まちがいなしの数が自己ベストに残る（1こ）", (await mem(p)).ebest === 1 && (await p.textContent("#eres")).includes("3投稿") && !(await mem(p)).runs.e);
+  await p.click("#back"); await p.click("#go-e"); await solve(p);
+  check("とことん：見つけ終えた直後でも「ここで降りる」で終われる（数も今の投稿まで）", (await p.textContent("#quit")).includes("1投稿") && (await p.click("#quit"), await p.waitForTimeout(150), (await p.textContent("#eres")).includes("1投稿")));
+  {
+    // 引き継ぎで形のおかしい記録が入っても、画面を止めない（2026-11-07 CodeRabbit）
+    const bad = await p.evaluate((d) => { const k = "dashisugi-v1", o = JSON.parse(localStorage.getItem(k)); const keepS = localStorage.getItem(k);
+      o.days[d] = { m: [] }; o.hdays[d] = { m: [0, 0] }; o.runs.x = { date: d, id: "z", list: [], res: [] }; o.runs.y = { mode: "d", date: d, id: "z", list: ["0:room|a"], res: [{ m: 0 }, { m: 0 }] }; o.runs.z = { mode: "d", date: d, id: "z", list: ["0:constructor|a"], res: [] };
+      localStorage.setItem(k, JSON.stringify(o)); const s = __dc.load(); localStorage.setItem(k, keepS);
+      return [!s.days[d] || s.days[d].m.length === 5, !s.hdays[d], !s.runs.x, !s.runs.y, !s.runs.z]; }, dayBefore(20));
+    check("引き継ぎ：投稿の数と合わない結果・mode の無い回・知らない場面の回は読まない", bad.every(Boolean), JSON.stringify(bad));
+  }
   {
     // 引き継ぎコードなどで数の所に文字が入っても、画面に HTML として出さない
     const q = await newPage(); await closeHow(q);

@@ -1,7 +1,7 @@
 // 出しすぎチェックを端末に保存して、電波が無くても遊べるようにする（PWA）。
 // 画面は先にネットを見て、つながらないときだけ保存したものを使う（直した版がすぐ届く）。
 // 記録（localStorage）には触らない。外へ何も送らない（よそのサイト＝文字の取り寄せは扱わない）。
-const CACHE = "dashisugi-v1";
+const CACHE = "dashisugi-v2";
 const SHELL = ["./", "./index.html", "./gen.js", "./art.js", "./transfer.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -18,8 +18,10 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  const base = new URL("./", self.location).pathname;
+  const appPage = req.mode === "navigate" && (url.pathname === base || url.pathname === base + "index.html"); // 知らない URL には画面を返さない（404 のまま）
   const fromCache = () => caches.match(req, { ignoreSearch: true })
-    .then((hit) => hit || (req.mode === "navigate" ? caches.match("./index.html") : undefined))
+    .then((hit) => hit || (appPage ? caches.match("./index.html") : undefined))
     .catch(() => undefined); // 保存したものを読めなくても、必ず返事を返す（ネットの返事か Response.error()）
   // ネットの返事と保存し直しは、イベントの中で waitUntil に預ける（4秒で保存したものを返したあとに届いても、新しい版を保存できる）
   const net = fetch(req);
