@@ -522,7 +522,7 @@ function home() {
     <button class="main" id="go-d">${done ? "今日の結果を見る" : rd ? `続きから（${rd.res.length + 1}つ目）` : `今日の5つ <small>第${dayNo(k)}回</small>`}</button>
     <button class="main alt" id="go-h">${hdone ? "上級の結果を見る" : rh ? "上級の続きから" : "上級：見落としやすい3つ（ヒントなし）"}</button>
     <button class="main alt" id="go-e">${re ? `とことんの続きから（${re.res.length + 1}つ目）` : "とことん：何投稿続けて見ぬける？"}${s.ebest ? ` <small>自己ベスト ${s.ebest}こ</small>` : ""}</button>
-    ${rv ? `<button class="main alt" id="go-r">復習 ${rv}つ <small>まちがえた投稿がもどってきた</small></button>` : ""}
+    ${(s.runs.r && s.runs.r.date === k && !doneOf(s.runs.r) ? s.runs.r : null) ? `<button class="main alt" id="go-r">復習の続きから（${s.runs.r.res.length + 1}つ目）</button>` : rv ? `<button class="main alt" id="go-r">復習 ${rv}つ <small>まちがえた投稿がもどってきた</small></button>` : ""}
     <div class="row"><button class="sub" id="go-p">練習（何度でも）</button><button class="sub" id="go-dex">手がかり帳 ${nk}/${G.LEAK_IDS.length}</button></div>
     <div class="row"><button class="sub" id="go-cal" aria-label="カレンダー${late.length ? `（あとから遊べる日 ${late.length}）` : ""}">カレンダー${late.length ? ` <span class="badge">▶${late.length}</span>` : ""}</button><button class="sub" id="go-ach">実績 ${ag}/${ACH.length}</button></div>
     <div class="stats"><div><b>${playedDays(s)}</b><small>遊んだ日</small></div><div><b>${s.posts || 0}</b><small>チェックした投稿</small></div><div><b>${st >= 1 ? st : "—"}</b><small>${st >= 1 ? "続けて" : "続けた日"}</small></div></div>
@@ -579,7 +579,8 @@ const uniq = (a) => [...new Set(a)];
 // 途中の保存：別のタブで見つけた・押した物も、使ったヒントも減らさない
 // まちがえた・ヒントを使ったその時に復習へ入れる（とことんで降りる・閉じるなど、解き終えずにやめても残る。2026-11-11 CodeRabbit）
 function early() { if (cur && !cur.done && ((cur.wrong && cur.wrong.length) || cur.hints || (cur.w2 && cur.w2.length))) Depth.mark(cur.tag, 1, cur.P.sceneName); }
-function keep() { early(); save((s) => { const r = s.runs[MODE]; if (!same(r)) return; const was = r.cur && r.cur.i === cur.i && r.cur.tag === cur.tag ? r.cur : { found: [], wrong: [], hints: 0 }; cur.hints = Math.max(cur.hints, was.hints || 0); const mine = (u) => cur.P.parts.some((p) => p.uid === u); cur.found = uniq([...cur.found, ...(was.found || []).filter(mine)]); cur.wrong = uniq([...cur.wrong, ...(was.wrong || []).filter(mine)]); if (!cur.jd && was.jd) cur.jd = was.jd; r.cur = { i: cur.i, tag: cur.tag, found: cur.found.slice(), wrong: cur.wrong.slice(), hints: cur.hints, jd: cur.jd }; }); }
+// keep は保存した回が同じ問題のときだけ early する（古いタブが復習の段を戻さない。2026-11-11 CodeRabbit）
+function keep() { let ok = false; save((s) => { const r = s.runs[MODE]; if (!same(r)) return; ok = true; const was = r.cur && r.cur.i === cur.i && r.cur.tag === cur.tag ? r.cur : { found: [], wrong: [], hints: 0 }; cur.hints = Math.max(cur.hints, was.hints || 0); const mine = (u) => cur.P.parts.some((p) => p.uid === u); cur.found = uniq([...cur.found, ...(was.found || []).filter(mine)]); cur.wrong = uniq([...cur.wrong, ...(was.wrong || []).filter(mine)]); if (!cur.jd && was.jd) cur.jd = was.jd; r.cur = { i: cur.i, tag: cur.tag, found: cur.found.slice(), wrong: cur.wrong.slice(), hints: cur.hints, jd: cur.jd }; }); if (ok) early(); }
 const missOf = () => cur.wrong.length + cur.hints;
 const partOf = (uid) => cur.P.parts.find((p) => p.uid === uid);
 const leftOf = () => cur.P.leaks.filter((u) => !cur.found.includes(u));
