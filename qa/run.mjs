@@ -9,6 +9,7 @@ import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { checkTransfer } from "./transfer-check.mjs";
+import { checkDepth } from "./depth-check.mjs";
 import { checkSwStall } from "./sw-check.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -75,7 +76,7 @@ check("画面にお笑いの言葉を入れない（本物っぽく）", !/お�
 check("チケット・回数制限・鍵で開くモードを入れない（好きなだけ遊べる）", !/🎫|チケット|すると開く|🔒/.test(html + gen));
 check("出典：公的な資料のリンクが gen.js にあり、このゲームについてに出す", Object.values(G.SRC).every((S) => /^https:\/\/www\.(soumu\.go\.jp|pref\.kyoto\.jp|city\.kitakyushu\.lg\.jp)\//.test(S.u)) && /#9110/.test(html) && /違法・有害情報相談センター/.test(html));
 check("画面の HTML に ${ が出ない書き方（'…' の中に ${ を書かない）", !/'[^'\n]*\$\{[^'\n]*'/.test(html.split("<script>").pop()));
-check("引き継ぎ：transfer.js をゲームの script より前に、このゲームの記録のキーだけで読む", /<script src="transfer\.js" data-game="dashisugi-check" data-keys="dashisugi-v1"><\/script>\s*<\/head>/.test(html) && html.indexOf('src="transfer.js"') < html.indexOf('src="gen.js"') && /data-hk/.test(html) && existsSync(path.join(root, "transfer.js")));
+check("引き継ぎ：transfer.js をゲームの script より前に、このゲームの記録のキー（記録・復習）だけで読む・depth.js も前に読む", /<script src="transfer\.js" data-game="dashisugi-check" data-keys="dashisugi-v1,dashisugi-depth"><\/script>\s*<script src="depth\.js" data-game="dashisugi-check" data-key="dashisugi-depth"><\/script>\s*<\/head>/.test(html) && html.indexOf('src="transfer.js"') < html.indexOf('src="gen.js"') && /data-hk/.test(html) && existsSync(path.join(root, "transfer.js")));
 { const og = (k) => (html.match(new RegExp(`<meta (?:property|name)="${k}" content="([^"]+)"`)) || [])[1] || "";
   const png = readFileSync(path.join(root, "og.png"));
   check("SNS で貼ると絵と題が出る（OGP・1200×630・絶対URL）", og("og:title") && og("og:description") && og("og:image") === "https://satou-aaaaa.github.io/dashisugi-check/og.png" && og("twitter:card") === "summary_large_image" && png.readUInt32BE(16) === 1200 && png.readUInt32BE(20) === 630); }
@@ -86,7 +87,7 @@ check("README の URL のすぐ後ろに全角の字を続けない（Link check
 { const sw = readFileSync(path.join(root, "sw.js"), "utf8"), mf = JSON.parse(readFileSync(path.join(root, "manifest.webmanifest"), "utf8"));
   { const st = await checkSwStall(sw); check("PWA：通信が止まっても4秒ほどで保存した画面に切り替わり、少しずつ届く受信は待ち、何も無ければ60秒で返す（shared-workflows template/qa/sw-check.mjs）", st.ok, JSON.stringify(st)); }
   const shell = JSON.parse(sw.match(/SHELL = (\[[^\]]+\])/)[1]);
-  check("PWA：sw.js は画面のファイルを全部保存し（引き継ぎの transfer.js も）、取り直しで古い画面を入れず、外へ何も送らない", ["./index.html", "./gen.js", "./art.js", "./transfer.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"].every((f) => shell.includes(f)) && /cache: "reload"/.test(sw) && !/https?:\/\//.test(sw.replace(/^\/\/.*$/gm, "")));
+  check("PWA：sw.js は画面のファイルを全部保存し（引き継ぎの transfer.js も）、取り直しで古い画面を入れず、外へ何も送らない", ["./index.html", "./gen.js", "./art.js", "./transfer.js", "./depth.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"].every((f) => shell.includes(f)) && /cache: "reload"/.test(sw) && !/https?:\/\//.test(sw.replace(/^\/\/.*$/gm, "")));
   check("PWA：manifest にアイコン2つと名前がある", mf.name === "出しすぎチェック" && mf.icons.length >= 2 && mf.start_url === "./"); }
 
 // ---- 3. ブラウザで遊ぶ ----
@@ -326,6 +327,43 @@ try {
     check("見やすさの設定を全部入れても、いちばん下まで動ける（html が固定されない）", r[0] > 0 && r[1] <= r[2] && r[3] === "static", r.join(","));
     await ctx.close();
   }
+  // 1問を深くする（shared-workflows routines/game-dev.md「1問を深くする」）：自信をかける・復習（2つ目の判断は、もとからある「大丈夫な物と見分けて全部見つける」）
+  {
+    const q = await newPage(); await closeHow(q);
+    const tags = ["0:school|dp1", "0:room|dp2", "1:park|dp3"];
+    await q.evaluate((tags) => __dc.save((s) => { s.runs.p = { mode: "p", date: __dc.todayKey(), list: tags, res: [], cur: null, id: "dp" }; }), tags);
+    await q.evaluate(() => { Depth.runStart(); __dc.play("p"); });
+    const sb = await q.$eval("#dp-sure", (b) => [b.getBoundingClientRect().height, b.getAttribute("aria-pressed"), b.textContent]);
+    check("自信のボタン：高さ44px以上・はじめは押していない", sb[0] >= 44 && sb[1] === "false", sb.join(","));
+    await q.click("#dp-sure");
+    check("自信のボタンを押すと ✓ が出る（色だけで分けない）", (await q.getAttribute("#dp-sure", "aria-pressed")) === "true" && (await q.textContent("#dp-sure")).includes("✓"));
+    await q.click(`[data-u="${(await safeOf(q))[0]}"]`);
+    check("自信ありで大丈夫な物を押すと、知らせに「思いこみ」と出て、自信は変えられない", (await q.textContent("#msg")).includes("思いこみ") && await q.locator("#dp-sure:disabled").count() === 1);
+    await q.reload(); await q.waitForTimeout(150); await q.evaluate(() => __dc.play("p"));
+    check("開き直すと自信のボタンは出ない（もう押したあと）", await q.locator("#dp-sure").count() === 0);
+    await solve(q);
+    check("見つけ終えた画面に、自信ありでまちがえたことが出る（開き直しても残る）", (await q.textContent(".verdict")).includes("自信ありでまちがえた"));
+    await q.click("#next"); await solve(q); await q.click("#next"); await solve(q); await q.click("#next"); await q.waitForTimeout(150);
+    check("終えた直後の結果に「自信ありの当たり」が出る", (await q.textContent("#surestat")).includes("0/1"));
+    const dp = await q.evaluate(() => JSON.parse(localStorage.getItem("dashisugi-depth") || "{}"));
+    check("まちがえた・ヒントを使った投稿だけ復習に入る", Object.keys(dp.rv || {}).join() === tags[0], Object.keys(dp.rv || {}).join(","));
+    await q.evaluate(() => { const d = JSON.parse(localStorage.getItem("dashisugi-depth")); for (const k in d.rv) d.rv[k].due = "2026-01-01"; localStorage.setItem("dashisugi-depth", JSON.stringify(d)); });
+    await q.goto(url); await q.waitForTimeout(150);
+    check("日の来た復習があると、ホームに「復習 1つ」", (await q.textContent("#go-r")).includes("復習 1つ"));
+    const before = await mem(q);
+    await q.click("#go-r");
+    check("復習の画面は「復習」と出る・同じ投稿", (await q.textContent("header")).includes("復習") && await q.evaluate(() => __dc.cur().tag) === "0:school|dp1");
+    await solve(q); await q.click("#next"); await q.waitForTimeout(150);
+    const after = await mem(q), dp2 = await q.evaluate(() => JSON.parse(localStorage.getItem("dashisugi-depth")));
+    check("復習を終えると結果は「復習」・今日の記録は増えない・シェアは出ない", (await q.textContent("h1")).includes("復習") && JSON.stringify(after.days) === JSON.stringify(before.days) && await q.locator("#share").count() === 0);
+    check("復習でまちがいなしで終えると、次は3日後へ進む", Object.values(dp2.rv).every((x) => x.s === 1 && x.due > TODAY));
+    await q.goto(url); await q.waitForTimeout(150);
+    check("復習を終えたら、ホームの「復習」は消える", await q.locator("#go-r").count() === 0);
+    await q.evaluate(() => { const d = JSON.parse(localStorage.getItem("dashisugi-depth")); d.rv["9:nai|1"] = { s: 0, due: "2026-01-01", t: 1 }; d.rv["constructor|x"] = { s: 0, due: "2026-01-01", t: 2 }; localStorage.setItem("dashisugi-depth", JSON.stringify(d)); });
+    await q.goto(url); await q.waitForTimeout(150);
+    check("作り直せない鍵（無い場面・constructor）は復習に数えず、ホームも出る", await q.locator("#go-d").count() === 1 && await q.locator("#go-r").count() === 0);
+    await q.context().close();
+  }
   // キーボードだけで遊べる（Tab と Enter）
   {
     const q = await newPage(); await closeHow(q);
@@ -349,6 +387,8 @@ try {
     check("ホームの題は縦長の画面でも縦に伸びない（820×1180・390×844・1280×800）", big.length === 0, big.join(" ")); await c.close(); }
 await browser.close();
 server.close();
+// 深さの部品（shared-workflows template/qa/depth-check.mjs）
+{ const e = await checkDepth(readFileSync(path.join(root, "depth.js"), "utf8")); check("depth.js（自信をかける・復習）の動き", e.length === 0, e.join(" / ")); }
 check("画面のエラーが無い", errors.length === 0, errors.slice(0, 3).join(" | "));
 
 { // 見やすさ・読みやすさ・偏り（shared-workflows template/qa/a11y.mjs の写し）
