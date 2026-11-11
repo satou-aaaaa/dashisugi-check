@@ -11,7 +11,7 @@ bash scripts/setup.sh   # Node.js（版は .nvmrc）を確かめ、検査の依�
 ## push する前の確認
 
 ```bash
-node qa/run.mjs   # 投稿の作り方（4つの難しさ×6場面×1500）・今日の5つと上級（3年分）・とことんの並び（300回）・通しで遊ぶ・続きから・上級・練習・とことん・手がかり帳・実績・カレンダー・あとから・古いタブ・スマホ幅・PWA・引き継ぎ・見やすさ（CI の QA と同じ）
+node qa/run.mjs   # 投稿の作り方（4つの難しさ×6場面×1500）・今日の5つと上級（3年分）・とことんの並び（300回）・通しで遊ぶ・続きから・上級・練習・とことん・自信・復習・手がかり帳・実績・カレンダー・あとから・古いタブ・スマホ幅・PWA・引き継ぎ・見やすさ（CI の QA と同じ）
 ```
 
 ## このリポジトリの決まり
@@ -23,14 +23,15 @@ node qa/run.mjs   # 投稿の作り方（4つの難しさ×6場面×1500）・�
 - ★はまちがい（大丈夫な物を押す）＋ヒントの数（0で★3・2まで★2・3以上★1）。ヒントは2段（1回目は写真・文・投稿の情報ごとの残りの数、2回目は残りの1つを光らせる）。全部見つけると、手がかりをかくした投稿と直し方を出す。時間制限は付けない。
 - 好きなだけ遊べる：チケット・ライフ・回数制限・🔒で開くモードを入れない（2026-11-06 satou さん。寄付で成り立たせるため）。上級・とことん・練習は最初から遊べる。
 - とことん（`runs.e`）：やさしい3→ふつう5→むずかしい12→上級30を毎回ちがう種で出し、残りが少なくなれば上級を20ずつ足す（`endlessList`・`moreList`）。1回の中で同じ投稿・続けて同じ場面を出さず、最近の150投稿（`recent`）も避ける。まちがえてもヒントを使っても続き、「ここで降りる」で終わる。自己ベスト `ebest` はまちがいなしで見ぬいた投稿の数。今日の記録・連続・Ko-fi・シェアには数えない（手がかり帳・チェックした投稿には入る）。
-- 記録 `dashisugi-v1`：`days`・`hdays`・`adays`（あとから）・`dex`（手がかり帳）・`posts`・`recent`・`runs`（モードごとの途中経過 `d`・`h`・`p`・`e`・`a:日付`）・`ach`・`kofi`・`ebest`。`load` は両側を `fresh()` で補ってから合わせ、`tidy` で形を直す。押す前に、保存した進み具合がこの画面と同じ投稿か（`same`）確かめ、見つけた物・ヒントの数は別のタブの分より減らさない（`keep`。shared-workflows `incidents/2026-11-04-daily-game-save-gaps.md`）。
+- 記録 `dashisugi-v1`：`days`・`hdays`・`adays`（あとから）・`dex`（手がかり帳）・`posts`・`recent`・`runs`（モードごとの途中経過 `d`・`h`・`p`・`e`・`r`・`a:日付`）・`ach`・`kofi`・`ebest`。`load` は両側を `fresh()` で補ってから合わせ、`tidy` で形を直す。押す前に、保存した進み具合がこの画面と同じ投稿か（`same`）確かめ、見つけた物・ヒントの数は別のタブの分より減らさない（`keep`。shared-workflows `incidents/2026-11-04-daily-game-save-gaps.md`）。
+- 1問を深くする（shared-workflows `routines/game-dev.md`「1問を深くする」、2026-11-11）：`depth.js` と `qa/depth-check.mjs` は shared-workflows `template/` の写しで、ここでは直さない。押す前に「🎯 自信あり？」を押せ、最初に押した1つ（手がかりか大丈夫な物か）で当たりを見る（失うものは無い。この回の数は `runs.*.ds`、途中は `cur.jd`）。2つ目の判断は、もとからある「大丈夫な物と見分けて全部見つける」なので2段目は足さない（1つの投稿の手がかりは種類がまざり、答えが1つに決まらない）。まちがい・ヒントがあった投稿は `Depth.mark` で復習へ入り、1→3→7日後にホームの「復習」（`runs.r`）に戻る。復習は今日の記録・連続・Ko-fi・シェアに数えない。起動時に `Depth.setValid`（`make` で作り直せるか）で作り直せない鍵を数えない。
 - 実績（`ACH`、13個）はいまの記録から毎回数える（新しく残すのは知らせ終えた印 `ach` だけ）。続けるは合計の日数（`playedDays`）。連続の日は1以上のときだけ出す。取りこぼした日（きのう〜7日前、`EPOCH` から）はカレンダーからあとから遊べ、連続・今日の記録・Ko-fi・シェアには数えない。
 - 共有は遊ぶ人が押したときに開くリンク（X・LINE・Web Share・コピー）だけ。シェアの文に投稿の中身（答え）を出さない（🟢🔶🔺 だけ）。
 - 感想は「感想を送る」から GitHub の Issue フォーム（`.github/ISSUE_TEMPLATE/feedback.yml`、name は「感想フォーム」）を開くだけ。名前・メールは聞かない。
 - 応援は Ko-fi（https://ko-fi.com/satouaaaaa）へのただのリンクだけ。今日の5つ・上級を初めて全部まちがいなしで終えたときだけ、結果の画面の下に1行。遊ぶのは無料のまま。
 - 外へ通信しない。外から読むのは Google Fonts の文字だけ（CSP の `connect-src 'self'` を広げない）。記録は遊ぶ人のブラウザ（localStorage）だけ。
 - 見やすさ：`</head>` の前の見やすさの設定（`<!-- a11y:begin -->`〜`end`）は shared-workflows `template/a11y/a11y.html` の写し、`qa/a11y.mjs` も `template/qa/a11y.mjs` の写しで、ここでは直さない。色だけで分けない（手がかりは「✓ 手がかり」と実線、大丈夫は「○ 大丈夫」と点線、ヒントは破線の輪、直した所は「✓ かくした」「✓ 消した」と打ち消し線、取れない星は ☆）。知らせは `#msg`（role=status）。
-- 引き継ぎ：`transfer.js` と `qa/transfer-check.mjs` は shared-workflows `template/` の写しで、ここでは直さない。`data-keys` は `dashisugi-v1`。記録の形を変えたら QA の `sample` も合わせる。
+- 引き継ぎ：`transfer.js` と `qa/transfer-check.mjs` は shared-workflows `template/` の写しで、ここでは直さない。`data-keys` は `dashisugi-v1,dashisugi-depth`。記録の形を変えたら QA の `sample` も合わせる。
 - 同じ日はどの端末でも同じ投稿にする：乱数は `sort` の比較の中で引かない（QA が見る）。少し遅れて動く処理（setTimeout）は、画面が替わっていたら何もしない。一行の式の途中にコメント `//` を足さない。
 - 押せる所は44px以上（写真の中の物も・幅320px）。機能を足す・直すたびに `qa/run.mjs` に検査を足す。乱数で組む部分は何百回も作って確かめる（shared-workflows `incidents/2026-10-31-roppo-empty-village.md`）。
 - PWA（`manifest.webmanifest`・`sw.js`・`icon-*.png`）：画面のファイルを足したら `sw.js` の `SHELL` にも足し、中身を大きく変えたら `CACHE` の版を上げる。アイコンは `node tools/make-icons.cjs`、SNS 用の絵 `og.png` は `node tools/make-og.cjs`（今日の投稿を入れない）。
