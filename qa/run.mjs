@@ -320,6 +320,21 @@ try {
     check("押せる所は高さ・幅44px以上（写真の中の物も）", small.length === 0, [...new Set(small)].slice(0, 8).join(","));
   }
   {
+    // 保存できないブラウザでは帯で知らせ、保存できるようになったら消す
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+    await ctx.addInitScript(() => { window.__origSetItem = Storage.prototype.setItem; Storage.prototype.setItem = function () { throw new Error("full"); }; });
+    const q = await newPage(390, ctx); await closeHow(q);
+    await q.click("#go-e"); await solve(q);
+    const n1 = await q.locator("#savewarn").count(); await q.waitForTimeout(2000);
+    const n2 = await q.locator("#savewarn").count();
+    check("保存に失敗すると、帯（#savewarn）がちょうど1つ出て、2秒たっても残る", n1 === 1 && n2 === 1, `${n1},${n2}`);
+    await q.evaluate(() => { Storage.prototype.setItem = window.__origSetItem; });
+    // 1問目：depth.js の復習の控えが保存される（控えが残るあいだは帯を消さない決まり）。2問目：ゲームの保存で帯が消える
+    await q.click("#next"); await solve(q); await q.click("#next"); await solve(q);
+    check("保存できるようになったら、帯（#savewarn）が消える", await q.locator("#savewarn").count() === 0);
+    await ctx.close();
+  }
+  {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 700 } });
     await ctx.addInitScript(() => localStorage.setItem("a11y-v1", JSON.stringify({ read: true, cvd: true, calm: true, say: true, ruby: true })));
     const q = await newPage(390, ctx); await closeHow(q);
@@ -395,6 +410,10 @@ try {
       const v = await r.evaluate(() => { const e = [...document.querySelectorAll(".title")].find((x) => x.offsetParent); if (!e) return null; const h = e.getBoundingClientRect().height; const f = e.style.flex; e.style.flex = "none"; const n = e.getBoundingClientRect().height; e.style.flex = f; return h - n; });
       if (v === null || v > 4) big.push(`${w}x${h}:${v === null ? "題なし" : "+" + Math.round(v) + "px"}`); }
     check("ホームの題は縦長の画面でも縦に伸びない（820×1180・390×844・1280×800）", big.length === 0, big.join(" ")); await c.close(); }
+{ // 知らせ（.toast）は下のボタンを塞がない（shared-workflows incidents/2026-11-17-known-game-bugs-spread.md）
+  const pt = await browser.newPage(); await pt.goto(url);
+  check("知らせ（.toast）が出ていても、その下のボタンを押せる（pointer-events:none）", await pt.evaluate(() => { const d = document.createElement("div"); d.className = "toast"; document.body.appendChild(d); const v = getComputedStyle(d).pointerEvents; d.remove(); return v === "none"; }));
+  await pt.close(); }
 await browser.close();
 server.close();
 // 深さの部品（shared-workflows template/qa/depth-check.mjs）
