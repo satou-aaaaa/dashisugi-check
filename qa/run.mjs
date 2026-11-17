@@ -320,6 +320,21 @@ try {
     check("押せる所は高さ・幅44px以上（写真の中の物も）", small.length === 0, [...new Set(small)].slice(0, 8).join(","));
   }
   {
+    // 保存できないブラウザでは帯で知らせ、保存できるようになったら消す
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+    await ctx.addInitScript(() => { window.__origSetItem = Storage.prototype.setItem; Storage.prototype.setItem = function () { throw new Error("full"); }; });
+    const q = await newPage(390, ctx); await closeHow(q);
+    await q.click("#go-e"); await solve(q);
+    const n1 = await q.locator("#savewarn").count(); await q.waitForTimeout(2000);
+    const n2 = await q.locator("#savewarn").count();
+    check("保存に失敗すると、帯（#savewarn）がちょうど1つ出て、2秒たっても残る", n1 === 1 && n2 === 1, `${n1},${n2}`);
+    await q.evaluate(() => { Storage.prototype.setItem = window.__origSetItem; });
+    // 1問目：depth.js の復習の控えが保存される（控えが残るあいだは帯を消さない決まり）。2問目：ゲームの保存で帯が消える
+    await q.click("#next"); await solve(q); await q.click("#next"); await solve(q);
+    check("保存できるようになったら、帯（#savewarn）が消える", await q.locator("#savewarn").count() === 0);
+    await ctx.close();
+  }
+  {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 700 } });
     await ctx.addInitScript(() => localStorage.setItem("a11y-v1", JSON.stringify({ read: true, cvd: true, calm: true, say: true, ruby: true })));
     const q = await newPage(390, ctx); await closeHow(q);
