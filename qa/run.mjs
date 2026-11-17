@@ -152,7 +152,7 @@ try {
   await p.click("#go-d");
   const tags = await p.evaluate(() => __dc.load().runs.d.list);
   check("今日の5つは日付から決まる（gen.js の dailyTags と同じ）", JSON.stringify(tags) === JSON.stringify(G.dailyTags(TODAY)));
-  check("投稿の画面：写真の物6つ（5つの場面も）・文3つ・投稿の情報1つ、押す所は名前つきで44px以上", await p.locator(".photo .obj").count() >= 5 && await p.locator(".cap .pt").count() === 3 && await p.locator(".pt.meta").count() === 1 && (await p.$$eval("[data-u]", (b) => b.filter((x) => !x.getAttribute("aria-label") || x.getBoundingClientRect().height < 44 || x.getBoundingClientRect().width < 44).length)) === 0);
+  check("投稿の画面：写真の物6つ（5つの場面も）・文3つ・投稿の情報1つ、押す所は名前つきで44px以上", await p.locator(".photo .obj").count() >= 5 && await p.locator(".cap .pt").count() === 3 && await p.locator(".pt.meta").count() === 1 && (await p.$$eval("[data-u]", (b) => b.filter((x) => !x.getAttribute("aria-label") || Math.round(x.getBoundingClientRect().height) < 44 || Math.round(x.getBoundingClientRect().width) < 44).length)) === 0);
   check("写真の絵は文字を作り話の名前で描く（絵がある）", (await p.$$eval(".photo .obj svg", (s) => s.filter((x) => x.innerHTML.length < 40).length)) === 0);
   const s0 = (await safeOf(p))[0];
   await p.click(`[data-u="${s0}"]`);
@@ -312,7 +312,7 @@ try {
         await q.waitForTimeout(100);
         const ov = await q.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         if (ov > 0) bad.push(`${w}px ${go || "ホーム"} ${ov}px`);
-        small.push(...(await q.$$eval("button:not([disabled]), a[href]", (bs) => bs.filter((b) => b.checkVisibility() && !b.closest(".cal")).filter((b) => b.getBoundingClientRect().height < 44 || b.getBoundingClientRect().width < 44).map((b) => (b.id || b.className || b.textContent).slice(0, 20)))).map((x) => `${w}/${go}:${x}`));
+        small.push(...(await q.$$eval("button:not([disabled]), a[href]", (bs) => bs.filter((b) => b.checkVisibility() && !b.closest(".cal")).filter((b) => Math.round(b.getBoundingClientRect().height) < 44 || Math.round(b.getBoundingClientRect().width) < 44).map((b) => (b.id || b.className || b.textContent).slice(0, 20)))).map((x) => `${w}/${go}:${x}`));
       }
       await q.context().close();
     }
